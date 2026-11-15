@@ -71,8 +71,11 @@ def predict(r: Reading):
 
 @app.post("/deviation")
 def deviation(r: Reading):
-    if r.ac_power is None:
+     if r.ac_power is None:
         raise HTTPException(422, "ac_power is required for /deviation")
+    if str(r.plant_id) not in THRESHOLDS:                                   # add
+        raise HTTPException(422, f"Unknown plant_id {r.plant_id}. "         # add
+                                 f"Use one of {list(THRESHOLDS)}")          # add
     if r.irradiation <= DAY_IRR:
         return {"deviation": False, "reason": "night-time reading, not checked"}
     pred = max(float(model.predict(build_row(r))[0]), 0.0)
