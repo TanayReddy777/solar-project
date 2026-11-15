@@ -8,8 +8,9 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
 BASE = Path(__file__).parent
-model = joblib.load(BASE / "model" / "solar_model.joblib")
-config = json.loads((BASE / "model" / "model_config.json").read_text())
+MODEL_DIR = BASE / "model" if (BASE / "model").exists() else BASE
+model = joblib.load(MODEL_DIR / "solar_model.joblib")
+config = json.loads((MODEL_DIR / "model_config.json").read_text())
 
 FEATURES = config["features"]
 THRESHOLDS = {str(k): float(v) for k, v in config["deviation_thresholds_kw"].items()}
