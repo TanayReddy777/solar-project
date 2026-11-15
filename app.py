@@ -68,14 +68,12 @@ def predict(r: Reading):
     pred = max(float(model.predict(build_row(r))[0]), 0.0)
     return {"plant_id": r.plant_id, "predicted_ac_power_kw": round(pred, 1)}
 
-
 @app.post("/deviation")
 def deviation(r: Reading):
-     if r.ac_power is None:
+    if r.ac_power is None:
         raise HTTPException(422, "ac_power is required for /deviation")
-    if str(r.plant_id) not in THRESHOLDS:                                   # add
-        raise HTTPException(422, f"Unknown plant_id {r.plant_id}. "         # add
-                                 f"Use one of {list(THRESHOLDS)}")          # add
+    if str(r.plant_id) not in THRESHOLDS:
+        raise HTTPException(422, f"Unknown plant_id {r.plant_id}. Use one of {list(THRESHOLDS)}")
     if r.irradiation <= DAY_IRR:
         return {"deviation": False, "reason": "night-time reading, not checked"}
     pred = max(float(model.predict(build_row(r))[0]), 0.0)
@@ -89,3 +87,4 @@ def deviation(r: Reading):
         "threshold_kw": round(thr, 1),
         "deviation": bool(abs(residual) > thr),
     }
+
