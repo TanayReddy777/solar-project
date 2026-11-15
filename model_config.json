@@ -1,0 +1,17 @@
+{
+  "features": [
+    "plant_code",
+    "AMBIENT_TEMPERATURE",
+    "MODULE_TEMPERATURE",
+    "IRRADIATION",
+    "hour_sin",
+    "hour_cos"
+  ],
+  "plant_2_id": 4136001,
+  "deviation_thresholds_kw": {
+    "4135001": 2259.2740767333025,
+    "4136001": 10874.409927155812
+  },
+  "threshold_rule": "99th percentile of validation daytime absolute residuals per plant, excluding suspect readings and one sustained Plant 1 event (7 Jun 2020, 12:00-14:00)",
+  "daytime_irradiation": 0.05
+}
