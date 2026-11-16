@@ -1,4 +1,4 @@
-```
+
 {
   "features": [
     "plant_code",
@@ -16,4 +16,3 @@
   "threshold_rule": "6 x robust spread (1.4826 x median absolute deviation of residuals) per plant, calibrated on validation daytime residuals excluding suspect readings",
   "daytime_irradiation": 0.05
 }
-```
