@@ -190,7 +190,12 @@ def health():
 
 @app.post("/predict")
 def predict(r: Reading):
-    return {"plant_id": r.plant_id, "predicted_ac_power_kw": round(predict_kw(r), 1)}
+    predicted = round(predict_kw(r), 1)
+    doc = r.model_dump(exclude={"ac_power"})
+    doc["predicted_ac_power_kw"] = predicted
+    doc["created_at"] = doc["updated_at"] = now()
+    doc["_id"] = db.forecasts.insert_one(doc).inserted_id
+    return out(doc)
 
 
 @app.post("/deviation")
@@ -284,3 +289,4 @@ def delete_forecast(forecast_id: str):
     if db.forecasts.delete_one({"_id": to_oid(forecast_id)}).deleted_count == 0:
         raise HTTPException(404, "Not found")
     return {"deleted": forecast_id}
+
