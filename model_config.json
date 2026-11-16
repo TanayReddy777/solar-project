@@ -1,3 +1,4 @@
+```
 {
   "features": [
     "plant_code",
@@ -9,9 +10,10 @@
   ],
   "plant_2_id": 4136001,
   "deviation_thresholds_kw": {
-    "4135001": 2259.2740767333025,
-    "4136001": 10874.409927155812
+    "4135001": 2316.6580602800645,
+    "4136001": 5441.498411371739
   },
-  "threshold_rule": "99th percentile of validation daytime absolute residuals per plant, excluding suspect readings and one sustained Plant 1 event (7 Jun 2020, 12:00-14:00)",
+  "threshold_rule": "6 x robust spread (1.4826 x median absolute deviation of residuals) per plant, calibrated on validation daytime residuals excluding suspect readings",
   "daytime_irradiation": 0.05
 }
+```
