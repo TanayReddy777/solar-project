@@ -435,7 +435,7 @@ def conditions_of(doc: dict) -> Conditions:
 # ------------------------------------------------------------------ model endpoints
 @app.get("/")
 def health():
-    return {"status": "ok", "endpoints": ["/predict", "/deviation", "/readings", "/forecasts", "/docs"]}
+    return {"status": "ok", "endpoints": ["/health", "/health/db", "/predict", "/deviation", "/readings", "/forecasts", "/docs"]}
 
 
 @app.get("/health")
