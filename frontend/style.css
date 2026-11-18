@@ -1,0 +1,616 @@
+/* GLOBAL SETTINGS */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+
+    --forest-green: #1F3D2B;
+    --dark-green: #193C2C;
+
+    --beige: #E8DCC4;
+    --light-beige: #F0E6D2;
+
+    --purple: #8B5CF6;
+
+    --text-green: #1F3D2B;
+    --muted-text: #82907B;
+
+}
+
+body {
+
+    font-family: 'Segoe UI', Arial, sans-serif;
+
+    background-color: var(--beige);
+
+    color: var(--text-green);
+
+}
+
+
+/* MAIN LAYOUT */
+
+.dashboard {
+
+    display: flex;
+
+    min-height: 100vh;
+
+}
+
+
+/* SIDEBAR */
+
+.sidebar {
+
+    width: 253px;
+
+    min-height: 100vh;
+
+    background-color: var(--forest-green);
+
+    color: var(--beige);
+
+    padding: 30px 20px;
+
+    flex-shrink: 0;
+
+}
+
+
+.logo {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 12px;
+
+    padding: 5px 10px 25px;
+
+}
+
+.logo-icon {
+
+    width: 36px;
+    height: 36px;
+
+    border: 2px solid var(--purple);
+
+    border-radius: 9px;
+
+    display: flex;
+
+    justify-content: center;
+    align-items: center;
+
+    color: var(--purple);
+
+    font-size: 23px;
+
+}
+
+.logo h2 {
+
+    font-size: 16px;
+
+    line-height: 1.3;
+
+    font-weight: 700;
+
+}
+
+
+.sidebar-line {
+
+    height: 1px;
+
+    background-color: rgba(232, 220, 196, 0.15);
+
+    margin-bottom: 27px;
+
+}
+
+
+.workspace {
+
+    font-size: 11px;
+
+    letter-spacing: 1.5px;
+
+    font-weight: 700;
+
+    color: #A7B5A7;
+
+    margin: 0 12px 13px;
+
+}
+
+
+/* NAVIGATION */
+
+.navigation {
+
+    display: flex;
+
+    flex-direction: column;
+
+    gap: 7px;
+
+}
+
+
+.nav-item {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 12px;
+
+    width: 100%;
+
+    padding: 13px 12px;
+
+    border: none;
+
+    border-radius: 8px;
+
+    background: transparent;
+
+    color: var(--beige);
+
+    font-size: 13px;
+
+    font-weight: 600;
+
+    text-align: left;
+
+    cursor: pointer;
+
+    transition: 0.25s;
+
+}
+
+.nav-item span {
+
+    font-size: 18px;
+
+    width: 17px;
+
+}
+
+
+.nav-item:hover {
+
+    background-color: rgba(232, 220, 196, 0.12);
+
+}
+
+
+.nav-item.active {
+
+    background-color: var(--beige);
+
+    color: var(--forest-green);
+
+}
+
+
+/* MAIN CONTENT */
+
+.main-content {
+
+    flex: 1;
+
+    padding: 32px 45px;
+
+    min-width: 0;
+
+}
+
+
+/* HEADER */
+
+.top-header {
+
+    display: flex;
+
+    justify-content: space-between;
+
+    align-items: center;
+
+    margin-bottom: 25px;
+
+}
+
+.top-header p {
+
+    font-size: 11px;
+
+    font-weight: 800;
+
+    letter-spacing: 1.5px;
+
+}
+
+
+.project-label {
+
+    font-size: 11px;
+
+    font-weight: 700;
+
+    border: 1px solid #D5C7A9;
+
+    padding: 9px 13px;
+
+    border-radius: 6px;
+
+}
+
+
+/* WELCOME */
+
+.welcome {
+
+    margin-bottom: 30px;
+
+}
+
+.welcome h1 {
+
+    font-size: 36px;
+
+    margin-bottom: 7px;
+
+    font-weight: 750;
+
+}
+
+.welcome p {
+
+    color: #7E8777;
+
+    font-size: 14px;
+
+}
+
+
+/* SECTION HEADINGS */
+
+.section-heading {
+
+    display: flex;
+
+    justify-content: space-between;
+
+    align-items: center;
+
+    margin-bottom: 14px;
+
+}
+
+.section-heading h3 {
+
+    font-size: 17px;
+
+}
+
+.section-heading span {
+
+    font-size: 11px;
+
+    color: #8A927F;
+
+}
+
+
+/* KPI CARDS */
+
+.kpi-container {
+
+    display: grid;
+
+    grid-template-columns: repeat(4, 1fr);
+
+    gap: 14px;
+
+    margin-bottom: 29px;
+
+}
+
+
+.kpi-card {
+
+    background-color: var(--forest-green);
+
+    color: var(--beige);
+
+    padding: 21px 18px;
+
+    border-radius: 9px;
+
+    min-height: 133px;
+
+    box-shadow: 0 4px 10px rgba(31, 61, 43, 0.08);
+
+}
+
+
+.kpi-card p {
+
+    font-size: 11px;
+
+    font-weight: 600;
+
+    margin-bottom: 27px;
+
+    color: #D3D8C9;
+
+}
+
+
+.kpi-card h2 {
+
+    font-size: 29px;
+
+    margin-bottom: 5px;
+
+}
+
+
+.kpi-card small {
+
+    font-size: 10px;
+
+    color: #B5C2B4;
+
+}
+
+
+.highlight-card {
+
+    border-top: 3px solid var(--purple);
+
+}
+
+
+/* CHARTS */
+
+.charts-section {
+
+    margin-top: 10px;
+
+}
+
+
+.charts-container {
+
+    display: grid;
+
+    grid-template-columns: 1.4fr 1fr;
+
+    gap: 15px;
+
+}
+
+
+.chart-card {
+
+    background-color: rgba(240, 230, 210, 0.75);
+
+    border: 1px solid #D8CBAF;
+
+    border-radius: 10px;
+
+    padding: 20px;
+
+}
+
+
+.chart-card h3 {
+
+    font-size: 15px;
+
+    margin-bottom: 5px;
+
+}
+
+
+.chart-card > p {
+
+    font-size: 11px;
+
+    color: #8A927F;
+
+    margin-bottom: 17px;
+
+}
+
+
+.chart-area {
+
+    height: 260px;
+
+    width: 100%;
+
+    position: relative;
+
+}
+
+
+/* BOTTOM SECTION */
+
+.bottom-section {
+
+    display: grid;
+
+    grid-template-columns: 1fr 1fr;
+
+    gap: 15px;
+
+    margin-top: 20px;
+
+}
+
+
+.performance-metrics {
+
+    display: flex;
+
+    justify-content: space-around;
+
+    margin-top: 25px;
+
+    text-align: center;
+
+}
+
+
+.performance-metrics span {
+
+    font-size: 12px;
+
+    color: #7E8777;
+
+}
+
+
+.performance-metrics h2 {
+
+    font-size: 25px;
+
+    margin-top: 8px;
+
+}
+
+
+.insight {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 10px;
+
+    margin-top: 17px;
+
+    font-size: 12px;
+
+}
+
+
+.insight-dot {
+
+    width: 9px;
+
+    height: 9px;
+
+    border-radius: 50%;
+
+    background-color: var(--forest-green);
+
+    flex-shrink: 0;
+
+}
+
+
+.purple-dot {
+
+    background-color: var(--purple);
+
+}
+
+
+/* RESPONSIVE DESIGN */
+
+@media (max-width: 1100px) {
+
+    .main-content {
+
+        padding: 25px;
+
+    }
+
+    .kpi-container {
+
+        grid-template-columns: repeat(2, 1fr);
+
+    }
+
+}
+
+
+@media (max-width: 750px) {
+
+    .dashboard {
+
+        flex-direction: column;
+
+    }
+
+    .sidebar {
+
+        width: 100%;
+
+        min-height: auto;
+
+    }
+
+    .navigation {
+
+        display: grid;
+
+        grid-template-columns: repeat(2, 1fr);
+
+    }
+
+    .charts-container {
+
+        grid-template-columns: 1fr;
+
+    }
+
+    .bottom-section {
+
+        grid-template-columns: 1fr;
+
+    }
+
+    .welcome h1 {
+
+        font-size: 27px;
+
+    }
+
+}
+
+
+@media (max-width: 450px) {
+
+    .kpi-container {
+
+        grid-template-columns: 1fr;
+
+    }
+
+    .top-header {
+
+        align-items: flex-start;
+
+        gap: 10px;
+
+    }
+
+    .top-header p {
+
+        font-size: 9px;
+
+    }
+
+}
