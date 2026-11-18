@@ -104,6 +104,12 @@ def test_all_reading_and_forecast_crud_requires_authentication(monkeypatch):
         assert getattr(client, method)(path, **kwargs).status_code == 401
 
 
+def test_health_endpoint_is_public_and_does_not_require_database(monkeypatch):
+    response = client.get("/health")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+
+
 def test_jwt_token_endpoint_is_removed():
     assert client.post("/auth/token", json={"username": "viewer", "password": "password"}).status_code == 404
 
