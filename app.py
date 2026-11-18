@@ -13,8 +13,12 @@ from pydantic import BaseModel
 from pymongo.errors import PyMongoError
 
 import db
+import logging
+
 
 # ------------------------------------------------------------------ model + config
+
+
 BASE = Path(__file__).parent
 MODEL_DIR = BASE / "model" if (BASE / "model").exists() else BASE
 model = joblib.load(MODEL_DIR / "solar_model.joblib")
@@ -284,3 +288,10 @@ def delete_forecast(forecast_id: str):
     if db.forecasts.delete_one({"_id": to_oid(forecast_id)}).deleted_count == 0:
         raise HTTPException(404, "Not found")
     return {"deleted": forecast_id}
+
+logger = logging.getLogger("uvicorn.error")
+
+@app.exception_handler(PyMongoError)
+def database_error(request, exc):
+    logger.error("MongoDB error: %r", exc)
+    return JSONResponse(status_code=503, content={"detail": "Database is not reachable. Check MONGODB_URI."})
