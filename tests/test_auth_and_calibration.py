@@ -20,6 +20,7 @@ class Cursor:
     def sort(self, *_): return self
     def skip(self, count): self.docs = self.docs[count:]; return self
     def limit(self, count): self.docs = self.docs[:count]; return self
+    def __iter__(self): return iter(self.docs)
 
 class Collection:
     def __init__(self): self.docs = {}
