@@ -435,7 +435,13 @@ def conditions_of(doc: dict) -> Conditions:
 # ------------------------------------------------------------------ model endpoints
 @app.get("/")
 def health():
-    return {"status": "ok", "endpoints": ["/predict", "/deviation", "/readings", "/forecasts", "/docs"]}
+    return {"status": "ok", "endpoints": ["/health", "/health/db", "/predict", "/deviation", "/readings", "/forecasts", "/docs"]}
+
+
+@app.get("/health")
+def health_check():
+    """Return application liveness without depending on MongoDB availability."""
+    return {"status": "ok"}
 
 
 @app.get("/health/db")
