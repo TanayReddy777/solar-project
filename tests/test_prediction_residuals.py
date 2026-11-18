@@ -55,6 +55,7 @@ class PredictionTests(unittest.TestCase):
             result = app.predict_kw(make_conditions(ambient_temperature=0.0))
         self.assertEqual(result, 321.5)
         self.assertEqual(float(estimator.last_frame.iloc[0]["AMBIENT_TEMPERATURE"]), 0.0)
+        self.assertEqual(app.weather_warnings(make_conditions(ambient_temperature=0.0)), [])
 
     def test_zero_module_temperature_is_not_silently_converted_to_zero_power(self):
         estimator = StubModel(321.5)
@@ -73,6 +74,10 @@ class PredictionTests(unittest.TestCase):
         with self.assertRaises(ValidationError):
             make_conditions(ambient_temperature=float("nan"))
 
+    def test_negative_actual_power_is_rejected(self):
+        with self.assertRaises(ValidationError):
+            app.Reading(**make_conditions().model_dump(), ac_power=-1.0)
+
     def test_non_finite_model_prediction_is_rejected(self):
         estimator = StubModel(float("nan"))
         with patch.object(app, "model", estimator):
@@ -82,10 +87,10 @@ class PredictionTests(unittest.TestCase):
 
 
 class ResidualTests(unittest.TestCase):
-    def _assess(self, actual, evidence=None):
+    def _assess(self, actual, evidence=None, plant_id=4136001):
         estimator = StubModel(1000.0)
         reading = app.Reading(
-            **make_conditions().model_dump(),
+            **make_conditions(plant_id=plant_id).model_dump(),
             ac_power=actual,
             **(evidence or {}),
         )
@@ -107,6 +112,12 @@ class ResidualTests(unittest.TestCase):
     def test_actual_below_prediction_has_negative_residual(self):
         result = self._assess(700.0)
         self.assertEqual(result["residual_kw"], -300.0)
+
+    def test_residual_calculation_supports_both_plants(self):
+        for plant_id in (4135001, 4136001):
+            with self.subTest(plant_id=plant_id):
+                result = self._assess(700.0, plant_id=plant_id)
+                self.assertEqual(result["residual_kw"], -300.0)
 
     def test_missing_calibration_is_reported_as_undetermined_not_normal(self):
         result = self._assess(700.0)
