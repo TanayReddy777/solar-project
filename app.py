@@ -14,7 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pymongo.errors import PyMongoError
 
 import db
-from auth import require_role, router as auth_router
+from auth import require_role
 
 
 # ------------------------------------------------------------------ model + config
@@ -35,7 +35,6 @@ FLEET = int(config.get("inverters_per_plant", 22))
 CLOUD_JUMP = float(config.get("cloud_irradiation_jump", 0.15))
 
 app = FastAPI(title="Solar power API", version="2.1")
-app.include_router(auth_router)
 
 # CORS: lets a web page on another address call this API with fetch()
 app.add_middleware(
