@@ -56,14 +56,30 @@ class Conditions(BaseModel):
     irradiation: float
 
 
-class Reading(Conditions):
-    ac_power: float | None = None      # needed only for /deviation
+class Evidence(BaseModel):
+    inverters_reporting: int | None = None
+    inverters_zero_ac: int | None = None
+    previous_irradiation: float | None = None
 
+class Reading(Conditions, Evidence):
+    ac_power: float | None = None
 
-class ReadingCreate(Conditions):
+class ReadingCreate(Conditions, Evidence):
     ac_power: float
     note: str = ""
 
+
+class Evidence(BaseModel):
+    inverters_reporting: int | None = None
+    inverters_zero_ac: int | None = None
+    previous_irradiation: float | None = None
+
+class Reading(Conditions, Evidence):
+    ac_power: float | None = None        # needed only for /deviation
+
+class ReadingCreate(Conditions, Evidence):
+    ac_power: float
+    note: str = ""
 
 class ReadingUpdate(BaseModel):
     plant_id: int | None = None
@@ -73,6 +89,9 @@ class ReadingUpdate(BaseModel):
     irradiation: float | None = None
     ac_power: float | None = None
     note: str | None = None
+    inverters_reporting: int | None = None     # new
+    inverters_zero_ac: int | None = None       # new
+    previous_irradiation: float | None = None  # new
 
 
 class ForecastCreate(Conditions):
@@ -126,36 +145,127 @@ def predict_kw(r: Conditions) -> float:
     return max(float(model.predict(build_row(r))[0]), 0.0)
 
 
-def assess(r: Conditions, ac_power: float) -> dict:
-    """Compare an actual reading with the model's expectation."""
+FLEET = int(config.get("inverters_per_plant", 22))
+CLOUD_JUMP = float(config.get("cloud_irradiation_jump", 0.15))
+
+
+def evidence_of(obj) -> dict:
+    """Read the optional evidence from a pydantic model or from a stored document."""
+    get = obj.get if isinstance(obj, dict) else (lambda k: getattr(obj, k, None))
+    return {k: get(k) for k in Evidence.model_fields}
+
+
+def diagnose(r: Conditions, ac_power: float, pred: float, residual: float,
+             center: float, thr: float, daytime: bool, deviation: bool,
+             ev: dict | None = None) -> dict:
+    ev = ev or {}
+    n_rep, n_zero, prev_irr = ev.get("inverters_reporting"), ev.get("inverters_zero_ac"), ev.get("previous_irradiation")
+    has_inverter_data = n_rep is not None or n_zero is not None
+
+    def out(reason, causes, confidence, severity, lost=None, confirm=None):
+        return {"reason": reason, "likely_causes": causes, "confidence": confidence,
+                "severity": severity, "estimated_inverters_lost": lost,
+                "to_confirm": confirm, "evidence_used": has_inverter_data or prev_irr is not None}
+
+    if not daytime:
+        return out("Night-time reading, not checked", [], "n/a", "none")
+    if not deviation:
+        return out("Normal: actual output is within the expected range", [], "n/a", "none")
+
+    # how bad is it? (distance outside the allowed band, in units of the threshold)
+    excess = abs(residual - center) / thr if thr else 0
+    ratio = ac_power / pred if pred > 0 else None
+    severity = "severe" if (excess > 2 or (ratio is not None and ratio < 0.5)) else "moderate"
+    # shortfall expressed as "equivalent inverters" (fleet output is spread over FLEET inverters)
+    lost = round((pred - ac_power) / pred * FLEET) if (residual < 0 and pred > 0) else None
+    lost = min(lost, FLEET) if lost is not None else None
+    cloud = prev_irr is not None and abs(r.irradiation - prev_irr) > CLOUD_JUMP
+
+    # ---------- A) inverter-level evidence supplied -> diagnosis ----------
+    if has_inverter_data:
+        if n_rep is not None and n_rep < FLEET and not n_zero:
+            return out(f"Only {n_rep} of {FLEET} inverters reported data, so the total is understated. "
+                       "This is a data-logging gap, not necessarily a real loss of generation.",
+                       ["Missing inverter data"], "high", severity, lost,
+                       "Check the data logger / communication for the missing inverters")
+        if n_zero is not None and n_zero > 0:
+            total = n_rep if n_rep is not None else FLEET
+            if n_zero >= total:
+                return out("All inverters report 0 kW while sunlight is available: full plant outage "
+                           "(grid trip / shutdown) or a data-logger fault.",
+                           ["Full plant outage", "Data-logger fault"], "high", severity, lost,
+                           "Check grid-trip and SCADA logs for this timestamp")
+            shortfall = pred - ac_power
+            explained = (n_zero / FLEET * pred) / shortfall if shortfall > 0 else None
+            note = ""
+            if explained is not None and explained < 0.7:
+                note = (f" They explain only about {explained:.0%} of the shortfall, so the remaining "
+                        "inverters are also under-producing.")
+            return out(f"{n_zero} of {total} inverters are at 0 kW: partial inverter outage.{note}",
+                       ["Partial inverter outage"] + (["Other inverters under-producing"] if note else []),
+                       "high", severity, lost, "Inspect the inverters that show 0 kW")
+        if residual < 0:
+            causes = ["Plant-wide derating or curtailment", "Soiling / shading", "Irradiation sensor over-reading"]
+            if cloud:
+                causes.insert(0, "Sudden cloud cover")
+            return out("No inverter is at 0 kW but output is low across the plant: "
+                       "plant-wide derating, soiling, shading or a sensor mismatch.",
+                       causes, "medium", severity, lost,
+                       "Compare each inverter's output with its neighbours and check the weather sensor")
+
+    # ---------- B) single reading only -> inference ----------
+    if residual > 0:
+        causes = ["Cloud-edge / irradiation sensor timing", "Irradiation sensor under-reading"]
+        return out("Output is above what the weather inputs predict: usually a cloud-edge effect or "
+                   "irradiation sensor lag.", causes, "low", severity, None,
+                   "Check the previous and next readings")
+    if ac_power == 0:
+        return out("Output is exactly 0 kW although irradiation shows sunlight: most likely a full plant "
+                   "outage or a data-logger fault.",
+                   ["Full plant outage", "Data-logger fault"], "medium", severity, lost,
+                   "Send inverters_zero_ac / inverters_reporting to confirm")
+    causes = ["Partial inverter outage", "Plant-wide derating",
+              "Sudden cloud cover (irradiation changed sharply)" if cloud else "Cloud cover",
+              "Missing inverter data"]
+    if cloud:
+        causes.insert(0, causes.pop(2))      # most likely cause first
+    approx = f" The shortfall equals roughly {lost} of {FLEET} inverters." if lost else ""
+    return out(f"Output is {abs(residual):.0f} kW below expectation.{approx} "
+               "One reading cannot separate the causes listed.",
+               causes, "low", severity, lost,
+               "Send inverters_zero_ac / inverters_reporting / previous_irradiation to confirm")
+
+
+def assess(r: Conditions, ac_power: float, evidence: dict | None = None) -> dict:
+    """Compare an actual reading with the model's expectation and explain the gap."""
     pid = str(r.plant_id)
     pred = predict_kw(r)
     residual = ac_power - pred
     thr = THRESHOLDS[pid]
+    center = CENTERS.get(pid, 0.0)
     daytime = r.irradiation > DAY_IRR
 
-    # Rule 1: miss larger than the plant's threshold (after centring on its typical residual)
-    size_rule = daytime and abs(residual - CENTERS.get(pid, 0.0)) > thr
-    # Rule 2: output far below expected (catches shutdown-type drops at any size)
-    relative_rule = (daytime
-                     and pred > REL["min_predicted_kw"]
+    size_rule = daytime and abs(residual - center) > thr
+    relative_rule = (daytime and pred > REL["min_predicted_kw"]
                      and ac_power < REL["ratio"] * pred)
+    deviation = bool(size_rule or relative_rule)
 
     result = {
         "plant_id": r.plant_id,
         "actual_ac_power_kw": ac_power,
         "predicted_ac_power_kw": round(pred, 1),
         "residual_kw": round(residual, 1),
+        "residual_centre_kw": round(center, 1),
         "threshold_kw": round(thr, 1),
         "daytime": daytime,
         "size_rule": bool(size_rule),
         "relative_rule": bool(relative_rule),
-        "deviation": bool(size_rule or relative_rule),
+        "deviation": deviation,
+        "calculation": (f"residual = actual - predicted = {ac_power:.1f} - {pred:.1f} = {residual:.1f} kW; "
+                        f"allowed band = {center:.1f} +/- {thr:.1f} kW"),
     }
-    if not daytime:
-        result["reason"] = "night-time reading, not checked"
+    result.update(diagnose(r, ac_power, pred, residual, center, thr, daytime, deviation, evidence))
     return result
-
 
 # ------------------------------------------------------------------ database helpers
 def now() -> str:
@@ -206,14 +316,14 @@ def predict(r: Reading):
 def deviation(r: Reading):
     if r.ac_power is None:
         raise HTTPException(422, "ac_power is required for /deviation")
-    return assess(r, r.ac_power)
+        return assess(r, r.ac_power, evidence_of(r))
 
 
 # ------------------------------------------------------------------ CRUD: readings (Plant Engineer)
 @app.post("/readings", status_code=201)                      # CREATE
 def create_reading(r: ReadingCreate):
     doc = r.model_dump()
-    doc.update(assess(r, r.ac_power))
+    doc.update(assess(r, r.ac_power, evidence_of(r)))
     doc["created_at"] = doc["updated_at"] = now()
     doc["_id"] = db.readings.insert_one(doc).inserted_id
     return out(doc)
@@ -240,7 +350,7 @@ def get_reading(reading_id: str):
 def update_reading(reading_id: str, changes: ReadingUpdate):
     doc = fetch_or_404(db.readings, reading_id)
     new = {**doc, **changes.model_dump(exclude_unset=True)}
-    new.update(assess(conditions_of(new), new["ac_power"]))   # re-run the model on the edited values
+   new.update(assess(conditions_of(new), new["ac_power"], evidence_of(new)))   # re-run the model on the edited values  # re-run the model on the edited values
     new["updated_at"] = now()
     new.pop("_id")
     db.readings.update_one({"_id": doc["_id"]}, {"$set": new})
