@@ -247,6 +247,40 @@ def diagnose(
     if not daytime:
         return result("Night-time / below daytime-irradiance threshold; outage diagnosis not applied.",
                       [], "n/a", "none")
+
+    # Direct inverter telemetry is independent evidence and can be assessed even
+    # when residual calibration is unavailable.
+    if n_rep is not None and n_zero is not None and n_zero > n_rep:
+        return result(
+            "Inconsistent inverter evidence: zero-output count exceeds reporting count.",
+            ["Invalid inverter telemetry"], "none", "unknown",
+            "Check SCADA counts and telemetry payload",
+        )
+
+    if n_rep is not None and n_rep < FLEET:
+        causes = ["Missing inverter telemetry"]
+        if n_zero:
+            causes.append("Zero-output inverters among reporting units")
+        return result(
+            f"Only {n_rep} of {FLEET} inverters reported. The plant total may be understated; outage cannot be confirmed from aggregate data.",
+            causes, "medium" if n_zero is not None and n_zero > 0 else "low",
+            "unknown" if deviation is None else ("severe" if deviation else "moderate"),
+            "Check logger communications and obtain per-inverter AC readings",
+        )
+
+    if n_zero is not None and n_zero > 0:
+        if n_rep is not None and n_zero == n_rep:
+            return result(
+                "Every reporting inverter is at zero AC while irradiation is above the daytime threshold; possible plant outage or data-logger fault.",
+                ["Possible full plant outage", "Possible data-logger fault"],
+                "high", "severe", "Verify grid-trip, SCADA and inverter status logs",
+            )
+        return result(
+            f"{n_zero} reporting inverters have zero AC output; this supports a partial inverter issue but does not quantify plant energy loss.",
+            ["Zero-output inverter(s)", "Possible partial inverter outage"],
+            "medium", "moderate", "Inspect affected inverter status and per-inverter power",
+        )
+
     if deviation is None:
         return result(
             "Deviation status is undetermined because the required residual calibration is incomplete.",
@@ -261,34 +295,6 @@ def diagnose(
     ratio = ac_power / pred if pred > 0 else None
     severity = "severe" if (excess > 2 or (ratio is not None and ratio < 0.5)) else "moderate"
     cloud = prev_irr is not None and abs(r.irradiation - prev_irr) > CLOUD_JUMP
-
-    if n_rep is not None and n_zero is not None and n_zero > n_rep:
-        return result("Inconsistent inverter evidence: zero-output count exceeds reporting count.",
-                      ["Invalid inverter telemetry"], "none", severity,
-                      "Check SCADA counts and telemetry payload")
-
-    if n_rep is not None and n_rep < FLEET:
-        causes = ["Missing inverter telemetry"]
-        if n_zero:
-            causes.append("Zero-output inverters among reporting units")
-        return result(
-            f"Only {n_rep} of {FLEET} inverters reported. The plant total may be understated; outage cannot be confirmed from aggregate data.",
-            causes, "medium" if n_zero is not None and n_zero > 0 else "low",
-            severity, "Check logger communications and obtain per-inverter AC readings",
-        )
-
-    if n_zero is not None and n_zero > 0:
-        if n_rep is not None and n_zero == n_rep:
-            return result(
-                "Every reporting inverter is at zero AC while irradiation is above the daytime threshold; possible plant outage or data-logger fault.",
-                ["Possible full plant outage", "Possible data-logger fault"],
-                "high", severity, "Verify grid-trip, SCADA and inverter status logs",
-            )
-        return result(
-            f"{n_zero} reporting inverters have zero AC output; this supports a partial inverter issue but does not quantify plant energy loss.",
-            ["Zero-output inverter(s)", "Possible partial inverter outage"],
-            "medium", severity, "Inspect affected inverter status and per-inverter power",
-        )
 
     if residual > 0:
         return result(
