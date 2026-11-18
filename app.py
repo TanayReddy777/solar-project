@@ -190,6 +190,11 @@ def conditions_of(doc: dict) -> Conditions:
 @app.get("/")
 def health():
     return {"status": "ok", "endpoints": ["/predict", "/deviation", "/readings", "/forecasts", "/docs"]}
+@app.get("/health/db")
+def health_db():
+    db.client.admin.command("ping")
+    return {"database": "connected"}
+
 
 
 @app.post("/predict")
