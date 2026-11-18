@@ -62,6 +62,8 @@ class PredictionTests(unittest.TestCase):
             result = app.predict_kw(make_conditions(module_temperature=0.0))
         self.assertEqual(result, 321.5)
         self.assertEqual(float(estimator.last_frame.iloc[0]["MODULE_TEMPERATURE"]), 0.0)
+        conditions = make_conditions(module_temperature=0.0)
+        self.assertTrue(app.weather_warnings(conditions))
 
     def test_negative_irradiation_is_rejected(self):
         with self.assertRaises(ValidationError):
