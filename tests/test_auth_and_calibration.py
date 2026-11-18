@@ -137,7 +137,7 @@ def test_both_available_rules_false_is_confirmed_normal():
     assert r["calibration_status"] == "complete" and r["reason"].startswith("Normal")
 
 def test_size_rule_true():
-    r = assess(actual=100, threshold=1000, relative={"min_predicted_kw": 100, "ratio": 0.05})
+    r = assess(actual=100, threshold=800, relative={"min_predicted_kw": 100, "ratio": 0.05})
     assert r["size_rule"] is True and r["deviation"] is True
 
 def test_relative_rule_true():
