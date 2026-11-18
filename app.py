@@ -438,6 +438,12 @@ def health():
     return {"status": "ok", "endpoints": ["/predict", "/deviation", "/readings", "/forecasts", "/docs"]}
 
 
+@app.get("/health")
+def health_check():
+    """Return application liveness without depending on MongoDB availability."""
+    return {"status": "ok"}
+
+
 @app.get("/health/db")
 def health_db():
     db.client.admin.command("ping")
