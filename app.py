@@ -7,13 +7,14 @@ import joblib
 import numpy as np
 import pandas as pd
 from bson import ObjectId
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pymongo.errors import PyMongoError
 
 import db
+from auth import require_role, router as auth_router
 
 
 # ------------------------------------------------------------------ model + config
@@ -34,6 +35,7 @@ FLEET = int(config.get("inverters_per_plant", 22))
 CLOUD_JUMP = float(config.get("cloud_irradiation_jump", 0.15))
 
 app = FastAPI(title="Solar power API", version="2.1")
+app.include_router(auth_router)
 
 # CORS: lets a web page on another address call this API with fetch()
 app.add_middleware(
@@ -359,12 +361,21 @@ def assess(r: Conditions, ac_power: float, evidence: dict | None = None) -> dict
             and ac_power < float(REL["ratio"]) * pred
         )
 
-    if size_rule is None and relative_rule is None:
-        deviation = None
-        calibration_status = "incomplete"
+    # A positive available check detects deviation. A negative result is
+    # conclusive only when both required calibration checks were evaluated.
+    available_rules = [rule for rule in (size_rule, relative_rule) if rule is not None]
+    if any(rule is True for rule in available_rules):
+        deviation = True
+    elif size_rule is not None and relative_rule is not None:
+        deviation = False
     else:
-        deviation = bool(size_rule is True or relative_rule is True)
-        calibration_status = "complete" if size_rule is not None and relative_rule is not None else "partial"
+        deviation = None
+
+    calibration_status = (
+        "complete" if size_rule is not None and relative_rule is not None
+        else "partial" if size_rule is not None or relative_rule is not None
+        else "incomplete"
+    )
 
     center_for_display = center
     diagnosis = diagnose(
@@ -452,7 +463,7 @@ def deviation(r: Reading):
 
 # ------------------------------------------------------------------ CRUD: readings (Plant Engineer)
 @app.post("/readings", status_code=201)                      # CREATE
-def create_reading(r: ReadingCreate):
+def create_reading(r: ReadingCreate, _user: dict = Depends(require_role('operator'))):
     doc = r.model_dump()
     doc.update(assess(r, r.ac_power, evidence_of(r)))
     doc["created_at"] = doc["updated_at"] = now()
@@ -462,7 +473,8 @@ def create_reading(r: ReadingCreate):
 
 @app.get("/readings")                                        # READ (list, with filters)
 def list_readings(plant_id: int | None = None, deviation: bool | None = None,
-                  limit: int = Query(50, ge=1, le=200), skip: int = Query(0, ge=0)):
+                  limit: int = Query(50, ge=1, le=200), skip: int = Query(0, ge=0),
+                  _user: dict = Depends(require_role("viewer"))):
     query = {}
     if plant_id is not None:
         query["plant_id"] = plant_id
@@ -473,12 +485,12 @@ def list_readings(plant_id: int | None = None, deviation: bool | None = None,
 
 
 @app.get("/readings/{reading_id}")                           # READ (one)
-def get_reading(reading_id: str):
+def get_reading(reading_id: str, _user: dict = Depends(require_role('viewer'))):
     return out(fetch_or_404(db.readings, reading_id))
 
 
 @app.put("/readings/{reading_id}")                           # UPDATE
-def update_reading(reading_id: str, changes: ReadingUpdate):
+def update_reading(reading_id: str, changes: ReadingUpdate, _user: dict = Depends(require_role('admin'))):
     doc = fetch_or_404(db.readings, reading_id)
     new = {**doc, **changes.model_dump(exclude_unset=True)}
     if new.get("ac_power") is not None:
@@ -490,7 +502,7 @@ def update_reading(reading_id: str, changes: ReadingUpdate):
 
 
 @app.delete("/readings/{reading_id}")                        # DELETE
-def delete_reading(reading_id: str):
+def delete_reading(reading_id: str, _user: dict = Depends(require_role('admin'))):
     if db.readings.delete_one({"_id": to_oid(reading_id)}).deleted_count == 0:
         raise HTTPException(404, "Not found")
     return {"deleted": reading_id}
@@ -498,7 +510,7 @@ def delete_reading(reading_id: str):
 
 # ------------------------------------------------------------------ CRUD: forecasts (DISCOM)
 @app.post("/forecasts", status_code=201)                     # CREATE
-def create_forecast(f: ForecastCreate):
+def create_forecast(f: ForecastCreate, _user: dict = Depends(require_role('operator'))):
     doc = f.model_dump()
     doc["predicted_ac_power_kw"] = round(predict_kw(f), 1)
     doc["created_at"] = doc["updated_at"] = now()
@@ -508,19 +520,20 @@ def create_forecast(f: ForecastCreate):
 
 @app.get("/forecasts")                                       # READ (list)
 def list_forecasts(plant_id: int | None = None,
-                   limit: int = Query(50, ge=1, le=200), skip: int = Query(0, ge=0)):
+                   limit: int = Query(50, ge=1, le=200), skip: int = Query(0, ge=0),
+                  _user: dict = Depends(require_role("viewer"))):
     query = {} if plant_id is None else {"plant_id": plant_id}
     cursor = db.forecasts.find(query).sort("created_at", -1).skip(skip).limit(limit)
     return {"total": db.forecasts.count_documents(query), "items": [out(d) for d in cursor]}
 
 
 @app.get("/forecasts/{forecast_id}")                         # READ (one)
-def get_forecast(forecast_id: str):
+def get_forecast(forecast_id: str, _user: dict = Depends(require_role('viewer'))):
     return out(fetch_or_404(db.forecasts, forecast_id))
 
 
 @app.put("/forecasts/{forecast_id}")                         # UPDATE
-def update_forecast(forecast_id: str, changes: ForecastUpdate):
+def update_forecast(forecast_id: str, changes: ForecastUpdate, _user: dict = Depends(require_role('admin'))):
     doc = fetch_or_404(db.forecasts, forecast_id)
     new = {**doc, **changes.model_dump(exclude_unset=True)}
     new["predicted_ac_power_kw"] = round(predict_kw(conditions_of(new)), 1)
@@ -531,7 +544,7 @@ def update_forecast(forecast_id: str, changes: ForecastUpdate):
 
 
 @app.delete("/forecasts/{forecast_id}")                      # DELETE
-def delete_forecast(forecast_id: str):
+def delete_forecast(forecast_id: str, _user: dict = Depends(require_role('admin'))):
     if db.forecasts.delete_one({"_id": to_oid(forecast_id)}).deleted_count == 0:
         raise HTTPException(404, "Not found")
     return {"deleted": forecast_id}
