@@ -10,20 +10,21 @@ Interactive docs: https://solar-api-876m.onrender.com/docs
 - GET / health check
 - POST /predict predicted AC power (kW), public for frontend compatibility
 - POST /deviation compares real and predicted power
-- POST /auth/token issues a 30-minute bearer token
-- Readings and forecasts CRUD routes require bearer authentication
+- Readings and forecasts CRUD routes require HTTP Basic authentication over HTTPS
 
 ## Authentication configuration (Render)
 
-Set these variables in Render's Environment settings. No secrets or user credentials have defaults.
+Set `API_USERS_JSON` in Render's Environment settings. It is a JSON object keyed by username; each value contains a salted PBKDF2-SHA256 password hash and one role (`viewer`, `operator`, or `admin`). Example shape:
+`{"solar-viewer":{"password_hash":"<generated hash>","role":"viewer"}}`
 
-- `JWT_SECRET_KEY`: a random secret of at least 32 UTF-8 bytes. Generate one with `python -c "import secrets; print(secrets.token_urlsafe(48))"`.
-- `API_USERS_JSON`: a JSON object keyed by username; each value has a PBKDF2 password hash and role (`viewer`, `operator`, or `admin`). Example shape: `{"solar-viewer":{"password_hash":"<generated hash>","role":"viewer"}}`.
-
-Generate a password hash without placing a plaintext password in command history:
+Generate a password hash without placing plaintext in shell history:
 `python -c "from getpass import getpass; from auth import hash_password; print(hash_password(getpass()))"`
 
-Viewers can read. Operators can read and create. Admins can read, create, update, and delete. Tokens use HS256, issuer and audience claims, and a 30-minute expiry. User existence and role are checked on every request, so removing an account or changing its role invalidates existing tokens. Do not commit credentials or signing keys.
+Viewers can read. Operators can read and create. Admins can read, create, update, and delete. Passwords are never stored in the repository; configure only password hashes in the environment.
+
+HTTP Basic credentials are accepted only for HTTPS requests. Render terminates TLS and forwards the original protocol to Uvicorn. Configure the Render start command to trust the Render proxy header, for example:
+`uvicorn app:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips=*`
+Use this setting only for a service that is reachable through Render's proxy. Verify the deployed service presents an HTTPS URL; do not send Basic credentials over plain HTTP. This change does not modify or trigger a deployment.
 
 ## Example prediction request
 {
