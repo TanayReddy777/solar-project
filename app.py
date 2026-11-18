@@ -200,6 +200,16 @@ def predict_kw(r: Conditions) -> float:
     return max(prediction, 0.0)
 
 
+def weather_warnings(r: Conditions) -> list[str]:
+    """Return non-blocking sensor plausibility warnings without altering valid inputs."""
+    warnings = []
+    if r.irradiation > DAY_IRR and r.module_temperature == 0:
+        warnings.append(
+            "Module temperature is 0°C despite measurable daytime irradiation; verify the module-temperature sensor."
+        )
+    return warnings
+
+
 def evidence_of(obj) -> dict:
     get = obj.get if isinstance(obj, dict) else (lambda k: getattr(obj, k, None))
     return {k: get(k) for k in Evidence.model_fields}
@@ -344,6 +354,7 @@ def assess(r: Conditions, ac_power: float, evidence: dict | None = None) -> dict
         "relative_rule": relative_rule,
         "deviation": deviation,
         "calibration_status": calibration_status,
+        "input_warnings": weather_warnings(r),
         "calculation": (
             f"residual = actual - predicted = {ac_power:.1f} - {pred:.1f} = {residual:.1f} kW; "
             + (f"allowed band = {center:.1f} +/- {thr:.1f} kW"
@@ -368,7 +379,11 @@ def health_db():
 
 @app.post("/predict")
 def predict(r: Reading):
-    return {"plant_id": r.plant_id, "predicted_ac_power_kw": round(predict_kw(r), 1)}
+    return {
+        "plant_id": r.plant_id,
+        "predicted_ac_power_kw": round(predict_kw(r), 1),
+        "input_warnings": weather_warnings(r),
+    }
 
 
 @app.post("/deviation")
