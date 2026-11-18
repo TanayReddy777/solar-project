@@ -114,7 +114,7 @@ new Chart(powerCanvas, {
 });
 
 // BACKEND POWER PREDICTION
-const API_BASE = "http://127.0.0.1:8000";
+const API_BASE = "https://solar-api-876m.onrender.com";
 
 const predictionForm = document.getElementById("prediction-form");
 const predictionStatus = document.getElementById("prediction-status");
