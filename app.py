@@ -213,7 +213,7 @@ def diagnose(
     center: float,
     thr: float,
     daytime: bool,
-    deviation: bool,
+    deviation: bool | None,
     ev: dict | None = None,
 ) -> dict:
     ev = ev or {}
@@ -237,6 +237,12 @@ def diagnose(
     if not daytime:
         return result("Night-time / below daytime-irradiance threshold; outage diagnosis not applied.",
                       [], "n/a", "none")
+    if deviation is None:
+        return result(
+            "Deviation status is undetermined because the required residual calibration is incomplete.",
+            ["Calibration unavailable"], "n/a", "unknown",
+            "Restore the validated residual centre and relative-rule parameters before classifying this reading",
+        )
     if not deviation:
         return result("Normal: actual output is within the configured expected range.",
                       [], "n/a", "none")
@@ -324,7 +330,7 @@ def assess(r: Conditions, ac_power: float, evidence: dict | None = None) -> dict
     center_for_display = center
     diagnosis = diagnose(
         r, ac_power, pred, residual, center or 0.0, thr, daytime,
-        bool(deviation), evidence,
+        deviation, evidence,
     )
     return {
         "plant_id": r.plant_id,
