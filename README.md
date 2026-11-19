@@ -3,7 +3,7 @@
 Predicts plant AC power from weather and time, and flags unusual readings.
 Model: SVR (scikit-learn 1.8.0). Hosted on Render.
 
-Live URL: https://solar-api-876m.onrender.com
+Live URL: https://solar-project-i7an.onrender.com/
 Interactive docs: https://solar-api-876m.onrender.com/docs
 
 ## Endpoints
