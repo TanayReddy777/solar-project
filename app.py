@@ -213,12 +213,15 @@ def predict_kw(r: Conditions) -> float:
     if r.irradiation <= DAY_IRR:
         return 0.0
 
-    return max(float(model.predict(build_row(r))[0]), 0.0)
-
     prediction = float(model.predict(build_row(r))[0])
+
     if not np.isfinite(prediction):
-        logger.error("Model returned non-finite prediction for plant_id=%s", r.plant_id)
+        logger.error(
+            "Model returned non-finite prediction for plant_id=%s",
+            r.plant_id,
+        )
         raise HTTPException(500, "Prediction model returned an invalid value")
+
     return max(prediction, 0.0)
 
 
