@@ -209,12 +209,11 @@ def build_row(r: Conditions) -> pd.DataFrame:
     }
     return pd.DataFrame([row])[FEATURES]
 
-
 def predict_kw(r: Conditions) -> float:
-    """Predict plant AC power; zero irradiance is a physical zero-generation case."""
-    check_plant(r.plant_id)
-    if r.irradiation == 0:
+    if r.irradiation <= DAY_IRR:
         return 0.0
+
+    return max(float(model.predict(build_row(r))[0]), 0.0)
 
     prediction = float(model.predict(build_row(r))[0])
     if not np.isfinite(prediction):
